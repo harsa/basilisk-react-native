@@ -139,12 +139,14 @@ const mapDispatchToProps = dispatch => ({
 const connectedDevicesScreen = connect(mapStateToProps, mapDispatchToProps)(
   DevicesScreen
 );
-
+const connectedDeviceScreen = connect(mapStateToProps, mapDispatchToProps)(
+	DeviceScreen
+);
 export default createStackNavigator(
   {
     //Devices: DevicesScreen,
     Devices: connectedDevicesScreen,
-    SingleDevice: DeviceScreen
+    SingleDevice: connectedDeviceScreen
   },
   {
     headerMode: "float"

@@ -22,18 +22,14 @@ export default class DeviceScreen extends React.Component {
     const device = this.props.navigation.getParam("device", {});
     console.log("rendering device", device);
 
-    return (
-      <DataContext.Consumer>
-        {context => {
-          const deviceSettings = context.sensorSettings[deviceId];
-          const sensorData = context.sensorData[deviceId];
-          if (!sensorData || !deviceSettings) return null;
+          const deviceSettings = this.props.devices.devices[deviceId];
+          if (!deviceSettings) return null;
 
           console.log("rendering settings", deviceSettings);
 
-          const temp = Math.round(sensorData.temp * 1000) / 1000 || "";
-          const humidity = Math.round(sensorData.humidity * 1000) / 1000 || "";
-          const timestamp = sensorData.lastTimestamp;
+          const temp = Math.round(deviceSettings.current.temp * 1000) / 1000 || "";
+          const humidity = Math.round(deviceSettings.current.humidity * 1000) / 1000 || "";
+          const timestamp = deviceSettings.current.lastTimestamp;
           return (
             <View
               style={{ alignItems: "center", flex: 1, paddingTop: 20 }}
@@ -61,8 +57,6 @@ export default class DeviceScreen extends React.Component {
               </View>
             </View>
           );
-        }}
-      </DataContext.Consumer>
-    );
+
   }
 }
