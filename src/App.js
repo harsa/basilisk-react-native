@@ -9,12 +9,25 @@ import {
 } from "react-native";
 
 import firebase from "react-native-firebase";
+import { Provider } from 'react-redux';
+import { initFirebase } from './actions';
 import DataProvider from "./components/DataProvider";
 import LoginDialog from "./components/Login";
 import NavigationService from "./components/NavigationService";
+import RootContainer from './RootContainer';
 import RootNavigator from "./RootNavigator";
+import configureStore from './store/configureStore';
+import { connect } from 'react-redux';
 
-export default class App extends React.Component {
+import mapStateToProps from './reducers/stateToProps'
+const mapDispatchToProps = (dispatch) => ({
+	initFirebase: ()=> dispatch(initFirebase())
+	//fetchData: () => dispatch(fetchData()),
+	//saveAlertField: ()=> dispatch()
+});
+
+
+ export default class App extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
@@ -22,8 +35,12 @@ export default class App extends React.Component {
       sensorSettings: {},
       navigator: null
     };
+		this.store = configureStore;
   }
   componentDidMount() {
+    //this.props.initFirebase();
+    this.store.dispatch(initFirebase(this.store))
+
     const { currentUser } = firebase.auth();
     if (!currentUser) {
       return;
@@ -55,51 +72,13 @@ export default class App extends React.Component {
 
   render() {
     return (
-      <DataProvider navigator={this.state.navigator}>
-        <RootNavigator
-					persistenceKey={"NavigationState"}
-          ref={navigatorRef => {
-            //this.setState({navigator, navigatorRef})
-          }}
-        />
-      </DataProvider>
+			<Provider store={this.store}>
+        <ConnectedRoot/>
+      </Provider>
     );
   }
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#F5FCFF"
-  },
-  logo: {
-    height: 80,
-    marginBottom: 16,
-    marginTop: 32,
-    width: 80
-  },
-  welcome: {
-    fontSize: 20,
-    textAlign: "center",
-    margin: 10
-  },
-  instructions: {
-    textAlign: "center",
-    color: "#333333",
-    marginBottom: 5
-  },
-  modules: {
-    margin: 20
-  },
-  modulesHeader: {
-    fontSize: 16,
-    marginBottom: 8
-  },
-  module: {
-    fontSize: 14,
-    marginTop: 4,
-    textAlign: "center"
-  }
-});
+const ConnectedRoot =  connect(
+	mapStateToProps,
+	mapDispatchToProps,
+)(RootContainer);

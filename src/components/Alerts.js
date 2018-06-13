@@ -1,21 +1,34 @@
 import React from "react";
 import PropTypes from "prop-types";
 import {
-	Button,
-	PickerIOS, ScrollView,
-	SegmentedControlIOS,
-	Switch,
-	Text,
-	TextInput,
-	View,
+  Button,
+  PickerIOS,
+  ScrollView,
+  SegmentedControlIOS,
+  Switch,
+  Text,
+  TextInput,
+  View
 } from "react-native";
 import { createStackNavigator } from "react-navigation";
-import { DataContext } from "./DataProvider";
+import { connect } from "react-redux";
+import {
+	alertDelete,
+	alertEdit,
+	alertFieldChange,
+	alertNew,
+	alertRuleFieldChange,
+	alertRuleSave,
+	alertSave,
+} from "../actions";
+import mapStateToProps from "../reducers/stateToProps";
 import { iOSUIKit } from "react-native-typography";
 import update from "immutability-helper";
 import Picker from "react-native-picker";
 import firebase from "react-native-firebase";
 import { Cell, Section, TableView } from "react-native-tableview-simple";
+import configureStore from "../store/configureStore";
+
 export class AlertsScreen extends React.Component {
   static propTypes = {};
   static defaultProps = {};
@@ -32,52 +45,72 @@ export class AlertsScreen extends React.Component {
     super(props);
   }
   render() {
+    const { alerts } = this.props.alerts;
+    console.log("rendering with props3", alerts);
     return (
-      <DataContext.Consumer>
-        {context => {
-          const { alerts } = context;
-          return (
-            <View>
-              <TableView>
-                <Section>
-                  {Object.keys(alerts)
-                    .map(key => {
-                      const alert = alerts[key];
-                      alert.id = key;
-                      return alert;
-                    })
-                    .map(alert => {
-                      console.log("interating alert", alert);
-                      return (
-                        <Cell
-                          accessory="DisclosureIndicator"
-                          key={alert.id}
-                          onPress={() => {
-                            this.props.navigation.navigate("AlertEdit", {
-                              alertId: alert.id
-                            });
-                          }}
-                          title={alert.name}
-                        />
-                      );
-                    })}
-                </Section>
-              </TableView>
-            </View>
-          );
-        }}
-      </DataContext.Consumer>
+      <View>
+        <TableView>
+          <Section sectionTintColor={"transparent"}>
+            {Object.keys(alerts)
+              .map(key => {
+                const alert = alerts[key];
+                alert.id = key;
+                return alert;
+              })
+              .map(alert => {
+                console.log("iterating alert", alert);
+                return (
+                  <Cell
+                    accessory="DisclosureIndicator"
+                    key={alert.id}
+                    onPress={() => {
+                      this.props.navigation.navigate("AlertEdit", {
+                        alertId: alert.id
+                      });
+                    }}
+                    title={alert.name}
+                  />
+                );
+              })}
+          </Section>
+        </TableView>
+      </View>
     );
   }
 }
+
 export class EditAlertScreen extends React.Component {
   static navigationOptions = props => {
+    const store = configureStore;
+
+
     console.log("navigationprops", props.navigation);
     const alertId = props.navigation.getParam("alertId", null);
     if (alertId) {
-      return { title: "Edit Alert" };
+      return { title: "Edit Alert",
+				headerRight: (
+					<Button
+						onPress={()=>{
+							store.dispatch(alertDelete())
+							props.navigation.navigate('AlertsAll')
+
+						}}
+						title="Delete"
+					/>
+				)};
     } else {
-      return { title: "New Alert" };
+      return {
+        title: "New Alert",
+				headerRight: (
+					<Button
+						onPress={()=>{
+						  store.dispatch(alertSave())
+              props.navigation.navigate('AlertsAll')
+            }}
+						title="Done"
+					/>
+				)
+      };
     }
   };
   constructor(props) {
@@ -94,7 +127,15 @@ export class EditAlertScreen extends React.Component {
       rules: {}
     };
   }
+
+  componentWillUnmount(){
+    if (this.props.alerts.currentAlert){
+			this.props.alertSave();
+    }
+  }
   saveAlertField(fieldName, value) {
+    this.props.alertFieldChange(fieldName, value);
+    /*
     this.setState(
       update(this.state, {
         alert: { [fieldName]: { $set: value } }
@@ -113,202 +154,256 @@ export class EditAlertScreen extends React.Component {
         console.log("saving to user alerts at", uid);
       }
     );
+    */
   }
-  saveRuleField(fieldName, ruleId, value) {
-    console.log("saveRuleField", fieldName, ruleId, value)
-		this.setState(
-			update(this.state, {
-				  rules: {
-            [ruleId]: {
-              [fieldName]: { $set: '' }
-            }
-				  }
-			}),
-			() => {
-				//get uid
-				const uid = firebase.auth().currentUser.uid;
-				const alertId = this.props.navigation.getParam("alertId", null);
-				if (alertId) {
-					firebase
-						.database()
-						.ref("alerts/" + uid + "/" + alertId + "/rules/" + ruleId + '/' + fieldName)
-						.set(value);
-				}
+  saveRuleField(ruleId, fieldName, value) {
+    console.log("saveRuleField", ruleId, fieldName, value);
+    this.props.ruleFieldChange(ruleId, fieldName, value);
+    return;
+    this.setState(
+      update(this.state, {
+        rules: {
+          [ruleId]: {
+            [fieldName]: { $set: "" }
+          }
+        }
+      }),
+      () => {
+        //get uid
+        const uid = firebase.auth().currentUser.uid;
+        const alertId = this.props.navigation.getParam("alertId", null);
+        if (alertId) {
+          firebase
+            .database()
+            .ref(
+              "alerts/" +
+                uid +
+                "/" +
+                alertId +
+                "/rules/" +
+                ruleId +
+                "/" +
+                fieldName
+            )
+            .set(value);
+        }
 
-				console.log("saving to user alerts at", uid);
-			}
-		);
+        console.log("saving to user alerts at", uid);
+      }
+    );
   }
-  saveNewAlert() {}
-  static showDevicePicker(devices) {
-    const data = [devices, ["Temperature", "Humidity"]];
+  static showDevicePicker(devices, options = {}) {
+    console.log("showing picker", devices);
+    const deviceNames = devices.map(device => device[1]);
+    const sensorMapping = [["temp", "Temperature"], ["humidity", "Humidity"]];
+
+    const sensorNames = sensorMapping.map(sensor => sensor[1]);
+
+    const data = [deviceNames, sensorNames];
+    const selectedDeviceName =
+      deviceNames[
+        devices.map(device => device[1]).indexOf(options.selected[0])
+      ];
+    const selectedSensorName = sensorMapping
+      .map(sensor => sensor[1])
+      .indexOf(options.selected[1]);
+    //const selection = [devices.map(device => device[0]).indexOf(options.selection[0])]
+
+    console.log("init picker3", selectedSensorName, options.selected);
     Picker.init({
       pickerData: data,
       pickerTitleText: "Select device and sensor",
-      selectedValue: ["foo", "Temperature"],
+      //pickerTitleText: selectedDeviceName,
+      selectedValue: [selectedDeviceName, "Temperature"],
       onPickerConfirm: data => {
-        console.log(data);
+        //device, sensor
+
+        const deviceId = devices[deviceNames.indexOf(data[0])][0];
+        const sensorId = sensorMapping[sensorNames.indexOf(data[1])][0];
+        console.log("confirmed", deviceId, sensorId);
+
+        if (options.onPickerConfirm) {
+          options.onPickerConfirm(deviceId, sensorId);
+        }
       },
       onPickerCancel: data => {
         console.log(data);
       },
       onPickerSelect: data => {
-        console.log(data);
+        console.log("selected", data);
       }
     });
 
     Picker.show();
   }
-  componentDidMount() {}
+  componentWillMount(){
+
+  }
+  componentDidMount() {
+    const alertId = this.props.navigation.getParam("alertId", null);
+    if (alertId) {
+      this.props.alertEdit(alertId);
+    } else this.props.alertNew();
+
+/*
+
+    */
+  }
   render() {
+    console.log("rendering with props2", this.props);
     const alertId = this.props.navigation.getParam("alertId", { alertId: "" });
 
+    const sensorSettings = this.props.devices.devices;
+    let alert = this.props.alerts.currentAlert || { name: "" };
+
+    //let { alert } = this.state;
+
+    let rules = [
+      {
+        id: "new",
+        deviceName: "",
+        kind: "",
+        name: "New rule"
+      }
+    ];
+    if (alert && alert.rules) {
+      rules = Object.keys(alert.rules).map(key => {
+        console.log("getting rule for key", key);
+        const rule = alert.rules[key];
+        rule.id = key;
+        rule.deviceName = "";
+        try {
+          rule.deviceName = sensorSettings[rule.deviceId].name;
+        } catch (e) {}
+
+        return rule;
+      });
+    }
+    console.log("created rules", rules);
+
+    const labelStyle = Object.assign({}, { width: 70 });
+    let devices = Object.keys(this.props.devices.devices)
+      .map(key => this.props.devices.devices[key])
+      .map(device => [device.deviceId, device.name]);
+
     return (
-      <DataContext.Consumer>
-        {context => {
-          const { alerts, sensorSettings } = context;
-          let { alert } = this.state;
-
-          if (alerts[alertId]) {
-            alert = alerts[alertId];
-          }
-
-          let rules = [
-            {
-              id: "new",
-              deviceName: "",
-              kind: "",
-              name: "New rule"
-            }
-          ];
-          if (alert && alert.rules) {
-            rules = Object.keys(alert.rules).map(key => {
-              console.log("getting rule for key", key);
-              const rule = alert.rules[key];
-              rule.id = key;
-              rule.deviceName = "";
-              try {
-                rule.deviceName = sensorSettings[rule.deviceId].name;
-              } catch (e) {}
-
-              return rule;
-            });
-          }
-          console.log("created rules", rules);
-
-          const labelStyle = Object.assign({}, { width: 70 });
-          const devices = Object.keys(sensorSettings)
-            .map(key => sensorSettings[key])
-            .map(device => device.name);
-          return (
-            <ScrollView>
-            <View>
-              <TableView>
-                {rules.map((rule, ruleKey) => {
-                  console.log("got rule", rule);
-                  return (
-                    <View key={ruleKey}>
-                      <RuleComponent
-                        rule={rule}
-                        devices={devices}
-                        saveRuleField={(fieldName, ruleId, value) => {
-                          //console.log("rulefield changed", fieldName, ruleId, value)
-                          this.saveRuleField(fieldName, ruleId, value);
-                        }}
-                      />
-                      <Section header={"Push message"}>
-                        <Cell
-                          cellContentView={
-                            <View
-                              style={{
-                                backgroundColor: "white",
-                                alignItems: "center",
-                                flexDirection: "row"
+      <ScrollView>
+        <View>
+          <TableView>
+            {rules.map((rule, ruleKey) => {
+              console.log("got rule", rule);
+              return (
+                <View key={ruleKey + ""}>
+                  <RuleComponent
+                    rule={rule}
+                    devices={devices}
+                    alertId={alertId}
+                    ruleSave={(alertId, ruleId) => {
+                      this.props.alertRuleSave(alertId, ruleId);
+                    }}
+                    saveRuleField={(ruleId, fieldName, value) => {
+                      console.log(
+                        "rulefield changed",
+                        fieldName,
+                        ruleId,
+                        value
+                      );
+                      this.saveRuleField(ruleId, fieldName, value);
+                    }}
+                  />
+                  <Section
+                    header={"Push message"}
+                    sectionTintColor={"transparent"}
+                  >
+                    <Cell
+                      cellContentView={
+                        <View
+                          style={{
+                            backgroundColor: "white",
+                            alignItems: "center",
+                            flexDirection: "row"
+                          }}
+                        >
+                          <Text style={labelStyle}>Title</Text>
+                          <ScrollView scrollEnabled={false}>
+                            <TextInput
+                              returnKeyType={"next"}
+                              value={alert.name}
+                              placeholder={"Type here"}
+                              style={{ width: "100%" }}
+                              onChangeText={text => {
+                                console.log("text changed", text);
+                                this.saveAlertField("name", text);
                               }}
-                            >
-                              <Text style={labelStyle}>Title</Text>
-															<ScrollView
-																scrollEnabled={false}>
-                              <TextInput
-																returnKeyType={'next'}
-                                value={alert.name}
-                                style={{ width: "100%" }}
-                                onChangeText={text => {
-                                  console.log("text changed", text);
-                                  this.saveAlertField("name", text);
-                                }}
-                              /></ScrollView>
-                            </View>
-                          }
-                        />
-
-                        <Cell
-                          cellContentView={
-                            <View
-                              style={{
-                                backgroundColor: "white",
-                                alignItems: "center",
-                                flexDirection: "row"
-                              }}
-                            >
-                              <Text style={labelStyle}>Body</Text>
-                              <TextInput
-																returnKeyType={'next'}
-                                multiline
-                                value={alert.message}
-                                onChangeText={text => {
-                                  console.log("text changed", text);
-                                  this.saveAlertField("message", text);
-                                }}
-                                style={{ width: "100%" }}
-                              />
-                            </View>
-                          }
-                        />
-                        <Cell
-                          title="Notifications disabled"
-                          cellContentView={
-                            <Text
-                              style={Object.assign({ flex: 1 }, labelStyle)}
-                            >
-                              Notifications disabled
-                            </Text>
-                          }
-                          cellAccessoryView={
-                            <Switch
-                              onValueChange={value => {
-                                this.saveAlertField(
-                                  "notificationsEnabled",
-                                  value
-                                );
-                              }}
-                              value={alert.notificationsEnabled}
                             />
-                          }
+                          </ScrollView>
+                        </View>
+                      }
+                    />
+
+                    <Cell
+                      cellContentView={
+                        <View
+                          style={{
+                            backgroundColor: "white",
+                            alignItems: "center",
+                            flexDirection: "row"
+                          }}
+                        >
+                          <Text style={labelStyle}>Body</Text>
+                          <TextInput
+                            returnKeyType={"next"}
+                            multiline
+                            placeholder={"Type here"}
+                            value={alert.message}
+                            onChangeText={text => {
+                              console.log("text changed", text);
+                              this.saveAlertField("message", text);
+                            }}
+                            style={{ width: "100%" }}
+                          />
+                        </View>
+                      }
+                    />
+                    <Cell
+                      title="Notifications disabled"
+                      cellContentView={
+                        <Text style={Object.assign({ flex: 1 }, labelStyle)}>
+                          Notifications{" "}
+                          {alert.notificationsEnabled ? "enabled" : "disabled"}
+                        </Text>
+                      }
+                      cellAccessoryView={
+                        <Switch
+                          onValueChange={value => {
+                            this.saveAlertField("notificationsEnabled", value);
+
+                          }}
+                          value={alert.notificationsEnabled}
                         />
-                      </Section>
-                    </View>
-                  );
-                })}
-              </TableView>
-            </View></ScrollView>
-          );
-        }}
-      </DataContext.Consumer>
+                      }
+                    />
+                  </Section>
+                </View>
+              );
+            })}
+          </TableView>
+        </View>
+      </ScrollView>
     );
   }
 }
 
 export class RuleComponent extends React.Component {
   static propTypes = {
-    key: PropTypes.string,
     rule: PropTypes.object,
-    devices: PropTypes.object
+    devices: PropTypes.object,
+    alertId: PropTypes.string
   };
   static defaultProps = {
-    key: 0,
     rule: {},
-    devices: {}
+    devices: {},
+    alertId: ""
   };
   constructor(props) {
     super(props);
@@ -330,20 +425,32 @@ export class RuleComponent extends React.Component {
   }
   componentDidMount() {}
   render() {
-
-    const ruleKey = this.props.key;
-    const { devices, saveRuleField } = this.props;
-    let { rule } = this.state;
+    //const ruleKey = this.props.key;
+    const { devices, saveRuleField, rule } = this.props;
+    //let { rule } = this.state;
 
     console.log("rendering rule", rule);
     const unit = "°C";
-    const value = rule ? rule.value : null
+    const value = rule ? rule.value : null;
 
+    const self = this;
     return (
-      <Section header={"Rule #" + (ruleKey + 1)}>
+      <Section header={"Rule #"} sectionTintColor={"transparent"}>
         <Cell
           onPress={() => {
-            EditAlertScreen.showDevicePicker(devices);
+            EditAlertScreen.showDevicePicker(devices, {
+              selected: [rule.deviceName, rule.kind],
+              onPickerConfirm: (deviceId, sensorId) => {
+                console.log(
+                  "picker value changed",
+                  rule.id,
+                  deviceId,
+                  sensorId
+                );
+                self.props.saveRuleField(rule.id, "deviceId", deviceId);
+                self.props.saveRuleField(rule.id, "kind", sensorId);
+              }
+            });
           }}
           key={rule.id}
           title={
@@ -359,8 +466,12 @@ export class RuleComponent extends React.Component {
             values={["Less than", "More than", "Between"]}
             selectedIndex={0}
             onChange={event => {
-              const operations = ['lt', 'gt', 'bt']
-              saveRuleField('operation', rule.id, operations[event.nativeEvent.selectedSegmentIndex])
+              const operations = ["lt", "gt", "bt"];
+              saveRuleField(
+                rule.id,
+                "operation",
+                operations[event.nativeEvent.selectedSegmentIndex]
+              );
               //this.setState({selectedIndex: event.nativeEvent.selectedSegmentIndex});
             }}
           />
@@ -368,10 +479,18 @@ export class RuleComponent extends React.Component {
         <Cell
           cellContentView={
             <View style={{ flexDirection: "row" }}>
-              <TextInput onChangeText={(text)=>{
-								saveRuleField('value',rule.id, text)
-              }} returnKeyType={'next'} value={value + ""} keyboardType={'decimal-pad'} />
-              <Text>{unit}</Text>
+              <TextInput
+                onChangeText={text => {
+                  saveRuleField(rule.id, "value", text);
+                }}
+                placeholder={"Enter trigger value"}
+                returnKeyType={"next"}
+                value={value + ""}
+                keyboardType={"decimal-pad"}
+              />
+              <Text>
+                {unit} {value}
+              </Text>
             </View>
           }
         />
@@ -379,10 +498,29 @@ export class RuleComponent extends React.Component {
     );
   }
 }
+const mapDispatchToProps = dispatch => ({
+  alertNew: () => dispatch(alertNew()),
+  alertEdit: alertId => dispatch(alertEdit(alertId)),
+  alertFieldChange: (fieldName, value) =>
+    dispatch(alertFieldChange(fieldName, value)),
+  ruleFieldChange: (ruleId, fieldName, value) =>
+    dispatch(alertRuleFieldChange(ruleId, fieldName, value)),
+  alertSave: (alertId, alert, store) =>
+    dispatch(alertSave(alertId, alert, store)),
+  alertRuleSave: (alertId, ruleId) => dispatch(alertRuleSave(alertId, ruleId))
+  //fetchData: () => dispatch(fetchData()),
+  //saveAlertField: ()=> dispatch()
+});
+const connectedAlertsScreen = connect(mapStateToProps, mapDispatchToProps)(
+  AlertsScreen
+);
+const connectedEditAlertScreen = connect(mapStateToProps, mapDispatchToProps)(
+  EditAlertScreen
+);
 export default createStackNavigator(
   {
-    AlertsAll: AlertsScreen,
-    AlertEdit: EditAlertScreen
+    AlertsAll: connectedAlertsScreen,
+    AlertEdit: connectedEditAlertScreen
   },
   {
     mode: "modal",

@@ -6,9 +6,14 @@ import update from "immutability-helper";
 import { Cell, Section, TableView } from "react-native-tableview-simple";
 import TimeAgo from "react-native-timeago";
 import { createStackNavigator } from "react-navigation";
+import { connect } from "react-redux";
+import mapStateToProps from "../reducers/stateToProps";
+import { initFirebase } from "../actions";
+import RootContainer from "../RootContainer";
 import DeviceScreen from "./Device";
 import { DataContext } from "./DataProvider";
 import { iOSUIKit } from "react-native-typography";
+
 export class DevicesScreen extends React.Component {
   static propTypes = {};
   static defaultProps = {};
@@ -40,90 +45,81 @@ export class DevicesScreen extends React.Component {
     });
   }
   */
+
   render() {
     //[{key: 'a'}, {key: 'b'}]
 
-    return (
-      <DataContext.Consumer>
-        {context => {
-          const { sensorSettings, sensorData } = context;
-          console.log("context", context);
+    //const { sensorSettings, sensorData } = this.props;
+    console.log("currentProps", this.props);
+    let sensorSettings = {};
+    let sensorData = {};
 
-          let data;
-
-          data = Object.keys(sensorSettings)
-            .map(key => {
-              const setting = Object.assign(
-                { deviceId: key },
-                sensorSettings[key]
-              );
-              return setting;
-            })
-            .map(setting => {
-              const readings = sensorData[setting.deviceId];
-              const r = update(setting, { current: { $set: readings } });
-              //console.log("rrrr", setting.deviceId, readings);
-              return r;
-            });
-
-          return (
-            <View
-              style={{
-                paddingTop: 5,
-                backgroundColor: "#EFEFF4",
-                height: 500,
-                alignItems: "stretch",
-                justifyContent: "flex-start",
-                flex: 1
-              }}
-            >
-              <TableView>
-                <Section>
-                  {data.map(item => {
-                    console.log("rendering item", item.current);
-                    const temp =
-                      item.current && item.current.temp
-                        ? Math.round(item.current.temp * 100) / 100
-                        : "";
-                    const humidity =
-                      item.current && item.current.humidity
-                        ? Math.round(item.current.humidity * 100) / 100
-                        : "";
-                    const timestamp =
-                      item.current && item.current.lastTimestamp
-                        ? item.current.lastTimestamp
-                        : "";
-                    return (
-                      <Cell
-                        key={item.deviceId}
-                        onPress={e => {
-                          console.log(
-                            "cell pressed",
-                            item,
-                            this.props.navigation
-                          );
-                          this.props.navigation.navigate("SingleDevice", {device: item});
-                        }}
-                        cellStyle={"Subtitle"}
-                        title={item.name}
-                        detail={<TimeAgo interval={1000} time={new Date(timestamp * 1000)} />}
-                        cellAccessoryView={
-                          <View>
-														<Text style={iOSUIKit.subheadEmphasized}>{temp} °C</Text>
-                            <Text style={iOSUIKit.caption2}>{humidity} %</Text>
-                          </View>
-                        }
-                      />
-                    );
-                  })}
-                </Section>
-              </TableView>
-            </View>
-          );
-        }}
-      </DataContext.Consumer>
+    let data = Object.keys(this.props.devices.devices).map(
+      key => {
+        const device = this.props.devices.devices[key];
+        device.deviceId = key;
+        return device
+      }
     );
-  }
+
+    return (
+      <View
+        style={{
+          paddingTop: 5,
+          backgroundColor: "#EFEFF4",
+          height: 500,
+          alignItems: "stretch",
+          justifyContent: "flex-start",
+          flex: 1
+        }}
+      >
+        <TableView>
+          <Section sectionTintColor={'transparent'}>
+            {data.map(item => {
+              console.log("rendering item", item.current);
+              const temp =
+                item.current && item.current.temp
+                  ? Math.round(item.current.temp * 100) / 100
+                  : "";
+              const humidity =
+                item.current && item.current.humidity
+                  ? Math.round(item.current.humidity * 100) / 100
+                  : "";
+              const timestamp =
+                item.current && item.current.lastTimestamp
+                  ? item.current.lastTimestamp
+                  : "";
+              return (
+                <Cell
+                  key={item.deviceId}
+                  onPress={e => {
+                    console.log("cell pressed", item, this.props.navigation);
+                    this.props.navigation.navigate("SingleDevice", {
+                      device: item
+                    });
+                  }}
+                  cellStyle={"Subtitle"}
+                  title={item.name}
+                  detail={
+                    <TimeAgo
+                      interval={1000}
+                      time={new Date(timestamp * 1000)}
+                    />
+                  }
+                  cellAccessoryView={
+                    <View>
+                      <Text style={iOSUIKit.subheadEmphasized}>{temp} °C</Text>
+                      <Text style={iOSUIKit.caption2}>{humidity} %</Text>
+                    </View>
+                  }
+                />
+              );
+            })}
+          </Section>
+        </TableView>
+      </View>
+    );
+  } //end render()
 }
 /*
 * cellContentView={
@@ -135,9 +131,19 @@ export class DevicesScreen extends React.Component {
 								}
 								*/
 
+const mapDispatchToProps = dispatch => ({
+  //fetchData: () => dispatch(fetchData()),
+  //saveAlertField: ()=> dispatch()
+});
+
+const connectedDevicesScreen = connect(mapStateToProps, mapDispatchToProps)(
+  DevicesScreen
+);
+
 export default createStackNavigator(
   {
-    Devices: DevicesScreen,
+    //Devices: DevicesScreen,
+    Devices: connectedDevicesScreen,
     SingleDevice: DeviceScreen
   },
   {

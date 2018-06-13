@@ -18,8 +18,6 @@ const RootNavigator = SwitchNavigator(
 );
 
 const n = () => (
-  <RootNavigator
-
-  />
+  <RootNavigator/>
 );
 export default RootNavigator;
