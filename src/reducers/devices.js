@@ -4,7 +4,7 @@ import { DEVICE_READINGS_CHANGED, DEVICE_SETTINGS_CHANGED } from '../actions/act
 const initialState = {
 	hello: 'hello redux world!',
 	devices: {},
-	deviceIds: [],
+	history: {}
 }
 const reducer = (state = initialState, action)=>{
 
@@ -18,9 +18,21 @@ const reducer = (state = initialState, action)=>{
 		case DEVICE_READINGS_CHANGED:
 			console.log("DEVICE_READINGS_CHANGED", action.payload)
 			if (state.devices[action.deviceId]){
-				return update(state, {
+
+				const s = update(state, {
 					devices: {[action.deviceId]: {current: {$set: action.payload}}}
 				})
+
+				if (s.history[action.deviceId]){
+					return update(s, {
+						history: {[action.deviceId]: {$push: [action.payload]}}
+					})
+				} else {
+					return update(s, {
+						history: {[action.deviceId]: {$set: [action.payload]}}
+					})
+				}
+
 			} else {
 				/*
 				return update(state, {
