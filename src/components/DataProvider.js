@@ -79,7 +79,7 @@ export default class DataProvider extends React.Component {
 						this.loadInitialData();
 					})
 				} else {
-					//this.props.navigation.navigate('Login')
+					this.props.navigation.navigate('Login')
 				}
 			})
 			return

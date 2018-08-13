@@ -13,9 +13,8 @@ export default class RootContainer extends React.Component {
 	}
 	render(){
 		//console.log("currentProps", this.props)
-		//
+		//persistenceKey={"NavigationState"}
 		return <RootNavigator
-			persistenceKey={"NavigationState"}
 			{...this.props}
 			ref={navigatorRef => {
 				//this.setState({navigator, navigatorRef})

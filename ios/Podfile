@@ -26,4 +26,8 @@ target 'BasiliskDashboard' do
 
   #pod 'Picker', :path => '../node_modules/react-native-picker'
 
+  pod 'RNSVG', :path => '../node_modules/react-native-svg'
+
+  pod 'RNVectorIcons', :path => '../node_modules/react-native-vector-icons'
+
 end

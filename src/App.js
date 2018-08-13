@@ -11,7 +11,6 @@ import {
 import firebase from "react-native-firebase";
 import { Provider } from 'react-redux';
 import { initFirebase } from './actions';
-import DataProvider from "./components/DataProvider";
 import LoginDialog from "./components/Login";
 import NavigationService from "./components/NavigationService";
 import RootContainer from './RootContainer';

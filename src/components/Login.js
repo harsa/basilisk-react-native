@@ -1,8 +1,10 @@
 import React from "react";
 import PropTypes from "prop-types";
-import { Button, Text, TextInput, View, StyleSheet } from "react-native";
+import { Button, Text, TextInput, View, StyleSheet, StatusBar } from "react-native";
 import firebase from 'react-native-firebase';
-
+import { iOSUIKit } from "react-native-typography";
+import createTheme from '../theme';
+const theme = createTheme()
 export default class LoginDialog extends React.Component {
   static propTypes = {};
   static defaultProps = {};
@@ -25,7 +27,11 @@ export default class LoginDialog extends React.Component {
   render() {
     return (
       <View style={styles.container}>
-        <Text>Login</Text>
+				<StatusBar
+					barStyle="light-content"
+					backgroundColor="#6a51ae"
+				/>
+        <Text style={iOSUIKit.title3EmphasizedWhite}>Login to continue</Text>
         {this.state.errorMessage && (
           <Text style={{ color: "red" }}>{this.state.errorMessage}</Text>
         )}
@@ -33,6 +39,7 @@ export default class LoginDialog extends React.Component {
           style={styles.textInput}
           autoCapitalize="none"
           placeholder="Email"
+          placeholderTextColor={'white'}
           onChangeText={email => this.setState({ email })}
           value={this.state.email}
         />
@@ -40,11 +47,12 @@ export default class LoginDialog extends React.Component {
           secureTextEntry
           style={styles.textInput}
           autoCapitalize="none"
+					placeholderTextColor={'white'}
           placeholder="Password"
           onChangeText={password => this.setState({ password })}
           value={this.state.password}
         />
-        <Button title="Login" onPress={this.handleLogin} />
+        <Button title="OK" onPress={this.handleLogin} />
       </View>
     );
   }
@@ -56,9 +64,11 @@ const styles = StyleSheet.create({
     alignItems: "center"
   },
   textInput: {
+    paddingLeft: 8,
     height: 40,
     width: "90%",
-    borderColor: "gray",
+    borderColor: "white",
+    color: 'white',
     borderWidth: 1,
     marginTop: 8
   }

@@ -10,6 +10,7 @@ import {
   TextInput,
   View
 } from "react-native";
+import TimeAgo from 'react-native-timeago';
 import { createStackNavigator } from "react-navigation";
 import { connect } from "react-redux";
 import {
@@ -28,7 +29,15 @@ import Picker from "react-native-picker";
 import firebase from "react-native-firebase";
 import { Cell, Section, TableView } from "react-native-tableview-simple";
 import configureStore from "../store/configureStore";
-
+import Icon from "react-native-vector-icons/SimpleLineIcons";
+import createTheme from '../theme';
+const theme = createTheme()
+const labelStyle = Object.assign({ color: theme.textColorMuted}, { width: 100 });
+const sensorMapping = [["temp", "Temperature"], ["humidity", "Humidity"]];
+const sensorKeys = {
+	temp: 'Temperature',
+	humidity: 'Humidity'
+}
 export class AlertsScreen extends React.Component {
   static propTypes = {};
   static defaultProps = {};
@@ -37,38 +46,77 @@ export class AlertsScreen extends React.Component {
     return {
       title: "Alerts",
       headerRight: (
-        <Button onPress={() => navigation.navigate("AlertEdit")} title="New" />
-      )
+        <Button onPress={() => navigation.navigate("AlertEdit")} color={theme.activeColor} title="New" />
+      ),
+			...theme.headers
     };
   };
   constructor(props) {
     super(props);
   }
+  componentDidMount(){
+		firebase.messaging().hasPermission()
+			.then(enabled => {
+				if (enabled) {
+					// user has permissions
+					console.log("notification permission already given")
+				} else {
+					// user doesn't have permission
+					console.log("no notification permission detected")
+				}
+			});
+
+		firebase.messaging().requestPermission()
+			.then(() => {
+				// User has authorised
+				console.log("notification permission granted")
+			})
+			.catch(error => {
+				// User has rejected permissions
+				console.error("notification permission denied", error)
+			});
+
+	}
+
   render() {
     const { alerts } = this.props.alerts;
     console.log("rendering with props3", alerts);
     return (
-      <View>
+      <View style={{backgroundColor: theme.containerColor, flex: 1}}>
+
         <TableView>
-          <Section sectionTintColor={"transparent"}>
+          <Section {...theme.uiTable.section }>
             {Object.keys(alerts)
               .map(key => {
                 const alert = alerts[key];
                 alert.id = key;
                 return alert;
               })
+							.sort((a,b)=>a.name.localeCompare(b.name))
               .map(alert => {
                 console.log("iterating alert", alert);
+
+                const cellStyle = Object.assign({}, theme.uiTable.cell, {
+                })
+
+                if (alert.triggered){
+                  //cellStyle.backgroundColor = theme.warningBackgroundColor
+                  //cellStyle.titleTextColor = theme.warningColor;
+                }
+
                 return (
                   <Cell
-                    accessory="DisclosureIndicator"
                     key={alert.id}
+										cellStyle="RightDetail"
+										accessory="DisclosureIndicator"
+                    detail={alert.triggered ? <Icon name={'exclamation'} size={20} color={theme.warningBackgroundColor} /> : null}
                     onPress={() => {
                       this.props.navigation.navigate("AlertEdit", {
                         alertId: alert.id
                       });
                     }}
                     title={alert.name}
+                    {...cellStyle}
                   />
                 );
               })}
@@ -95,9 +143,11 @@ export class EditAlertScreen extends React.Component {
 							props.navigation.navigate('AlertsAll')
 
 						}}
+            color={theme.dangerColor}
 						title="Delete"
 					/>
-				)};
+				),
+				...theme.headers};
     } else {
       return {
         title: "New Alert",
@@ -107,9 +157,10 @@ export class EditAlertScreen extends React.Component {
 						  store.dispatch(alertSave())
               props.navigation.navigate('AlertsAll')
             }}
+						color={theme.activeColor}
 						title="Done"
 					/>
-				)
+				),...theme.headers
       };
     }
   };
@@ -129,7 +180,8 @@ export class EditAlertScreen extends React.Component {
   }
 
   componentWillUnmount(){
-    if (this.props.alerts.currentAlert){
+		const alertId = this.props.navigation.getParam("alertId", null);
+    if (this.props.alerts.currentAlert && alertId){
 			this.props.alertSave();
     }
   }
@@ -195,7 +247,6 @@ export class EditAlertScreen extends React.Component {
   static showDevicePicker(devices, options = {}) {
     console.log("showing picker", devices);
     const deviceNames = devices.map(device => device[1]);
-    const sensorMapping = [["temp", "Temperature"], ["humidity", "Humidity"]];
 
     const sensorNames = sensorMapping.map(sensor => sensor[1]);
 
@@ -281,15 +332,23 @@ export class EditAlertScreen extends React.Component {
     }
     console.log("created rules", rules);
 
-    const labelStyle = Object.assign({}, { width: 70 });
+
     let devices = Object.keys(this.props.devices.devices)
       .map(key => this.props.devices.devices[key])
       .map(device => [device.deviceId, device.name]);
 
     return (
+			<View style={{backgroundColor: theme.containerColor, flex: 1}}>
       <ScrollView>
-        <View>
           <TableView>
+            {alert.triggered ? <Section {...theme.uiTable.section}>
+              <Cell {...theme.uiTable.cell}  titleTextColor={'orange'} cellContentView={<View style={{flexDirection: 'row', justifyContent: 'center', alignItems: 'center'}}><Icon name={'exclamation'} size={20} color={theme.warningBackgroundColor} /><Text style={{marginLeft: 8,color: 'orange'}}>Alert triggered </Text><TimeAgo
+								interval={1000}
+								style={{color: 'orange'}}
+								time={new Date(alert.triggered * 1000)}
+							/></View>}/>
+						</Section> : null}
+
             {rules.map((rule, ruleKey) => {
               console.log("got rule", rule);
               return (
@@ -311,15 +370,15 @@ export class EditAlertScreen extends React.Component {
                       this.saveRuleField(ruleId, fieldName, value);
                     }}
                   />
-                  <Section
+                  <Section {...theme.uiTable.section}
                     header={"Push message"}
                     sectionTintColor={"transparent"}
                   >
                     <Cell
+											{...theme.uiTable.cell}
                       cellContentView={
                         <View
                           style={{
-                            backgroundColor: "white",
                             alignItems: "center",
                             flexDirection: "row"
                           }}
@@ -327,10 +386,12 @@ export class EditAlertScreen extends React.Component {
                           <Text style={labelStyle}>Title</Text>
                           <ScrollView scrollEnabled={false}>
                             <TextInput
+															keyboardAppearance={'dark'}
+															placeholderTextColor={theme.textColorMuted}
                               returnKeyType={"next"}
                               value={alert.name}
                               placeholder={"Type here"}
-                              style={{ width: "100%" }}
+                              style={{ width: "100%", ...theme.textInput.default}}
                               onChangeText={text => {
                                 console.log("text changed", text);
                                 this.saveAlertField("name", text);
@@ -342,39 +403,46 @@ export class EditAlertScreen extends React.Component {
                     />
 
                     <Cell
+											{...theme.uiTable.cell}
                       cellContentView={
                         <View
                           style={{
-                            backgroundColor: "white",
                             alignItems: "center",
                             flexDirection: "row"
                           }}
                         >
                           <Text style={labelStyle}>Body</Text>
+													<ScrollView scrollEnabled={false}>
                           <TextInput
+														keyboardAppearance={'dark'}
                             returnKeyType={"next"}
                             multiline
                             placeholder={"Type here"}
                             value={alert.message}
+														placeholderTextColor={theme.textColorMuted}
+														style={{ width: "100%", ...theme.textInput.default}}
                             onChangeText={text => {
                               console.log("text changed", text);
                               this.saveAlertField("message", text);
                             }}
-                            style={{ width: "100%" }}
-                          />
+													/></ScrollView>
                         </View>
                       }
                     />
                     <Cell
+											{...theme.uiTable.cell}
                       title="Notifications disabled"
                       cellContentView={
+
                         <Text style={Object.assign({ flex: 1 }, labelStyle)}>
                           Notifications{" "}
                           {alert.notificationsEnabled ? "enabled" : "disabled"}
                         </Text>
                       }
+
                       cellAccessoryView={
                         <Switch
+													onTintColor={theme.activeColor}
                           onValueChange={value => {
                             this.saveAlertField("notificationsEnabled", value);
 
@@ -388,8 +456,10 @@ export class EditAlertScreen extends React.Component {
               );
             })}
           </TableView>
-        </View>
-      </ScrollView>
+
+
+
+      </ScrollView></View>
     );
   }
 }
@@ -432,11 +502,15 @@ export class RuleComponent extends React.Component {
     console.log("rendering rule", rule);
     const unit = "°C";
     const value = rule ? rule.value : null;
-
+    const threshold = rule ? rule.threshold: null;
+    const operation = rule ? rule.operation : null;
     const self = this;
+
+		const operations = ["lt", "gt"];
+		const operationIndex = operations.indexOf(operation)
     return (
-      <Section header={"Rule #"} sectionTintColor={"transparent"}>
-        <Cell
+      <Section header={"Alert when"} sectionTintColor={"transparent"} {...theme.uiTable.section}>
+        <Cell {...theme.uiTable.cell}
           onPress={() => {
             EditAlertScreen.showDevicePicker(devices, {
               selected: [rule.deviceName, rule.kind],
@@ -454,32 +528,43 @@ export class RuleComponent extends React.Component {
           }}
           key={rule.id}
           title={
-            <View style={{ flexDirection: "row" }}>
-              <Text style={{ fontWeight: "bold" }}>{rule.deviceName}</Text>
-              <Text> - </Text>
-              <Text style={{ fontWeight: "bold" }}>{rule.kind}</Text>
-            </View>
+            rule.deviceName ? <View style={{ flexDirection: "row", color: theme.textColor, minWidth: 300 }}>
+              <Text style={{ fontWeight: "bold", color: theme.textColor  }}>{rule.deviceName}</Text>
+              <Text style={{ color: theme.textColor  }}> - </Text>
+              <Text style={{ fontWeight: "bold", color: theme.textColor  }}>{sensorKeys[rule.kind]}</Text>
+						</View> : <Text style={{color: theme.textColorMuted}}>Select device, sensor</Text>
           }
         />
-        <View style={{ margin: 20 }}>
-          <SegmentedControlIOS
-            values={["Less than", "More than", "Between"]}
-            selectedIndex={0}
-            onChange={event => {
-              const operations = ["lt", "gt", "bt"];
-              saveRuleField(
-                rule.id,
-                "operation",
-                operations[event.nativeEvent.selectedSegmentIndex]
-              );
-              //this.setState({selectedIndex: event.nativeEvent.selectedSegmentIndex});
-            }}
-          />
-        </View>
         <Cell
+					{...theme.uiTable.cell}
+          cellContentView={
+					<View style={{ marginTop: 20, marginBottom: 20, width: '100%' }}>
+						<SegmentedControlIOS
+							values={["Less than", "More than"]}
+							selectedIndex={operationIndex}
+							tintColor={theme.activeColor}
+							onChange={event => {
+
+								saveRuleField(
+									rule.id,
+									"operation",
+									operations[event.nativeEvent.selectedSegmentIndex]
+								);
+								//this.setState({selectedIndex: event.nativeEvent.selectedSegmentIndex});
+							}}
+						/>
+					</View>
+				} />
+
+        <Cell {...theme.uiTable.cell}
           cellContentView={
             <View style={{ flexDirection: "row" }}>
+							<Text style={labelStyle}>Triggered at</Text>
+							<ScrollView scrollEnabled={false}>
               <TextInput
+								keyboardAppearance={'dark'}
+								placeholderTextColor={theme.textColorMuted}
+                style={theme.textInput.default}
                 onChangeText={text => {
                   saveRuleField(rule.id, "value", text);
                 }}
@@ -487,13 +572,36 @@ export class RuleComponent extends React.Component {
                 returnKeyType={"next"}
                 value={value + ""}
                 keyboardType={"decimal-pad"}
-              />
-              <Text>
-                {unit} {value}
+							/></ScrollView>
+              <Text style={{color: 'white'}}>
+                {unit}
               </Text>
             </View>
           }
         />
+				<Cell {...theme.uiTable.cell}
+							cellContentView={
+								<View style={{ flexDirection: "row" }}>
+									<Text style={labelStyle}>Reset at</Text>
+									<ScrollView scrollEnabled={false}>
+									<TextInput
+										keyboardAppearance={'dark'}
+										placeholderTextColor={theme.textColorMuted}
+										style={theme.textInput.default}
+										onChangeText={text => {
+											saveRuleField(rule.id, "threshold", text);
+										}}
+										placeholder={"Enter value "}
+										returnKeyType={"next"}
+										value={threshold + ""}
+										keyboardType={"decimal-pad"}
+									/></ScrollView>
+									<Text style={{color: 'white'}}>
+										{unit}
+									</Text>
+								</View>
+							}
+				/>
       </Section>
     );
   }

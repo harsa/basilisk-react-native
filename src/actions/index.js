@@ -7,7 +7,7 @@ import {
 	ALERT_RULE_FIELD_CHANGE,
 	ALERT_RULE_SAVE,
 	ALERT_SAVE,
-	DEVICE_CHANGED,
+	DEVICE_CHANGED, DEVICE_HISTORY_RECEIVED,
 	DEVICE_READINGS_CHANGED,
 	DEVICE_SETTINGS_CHANGED,
 	INIT_FIREBASE,
@@ -23,14 +23,36 @@ export function deviceChanged(dispatch, method, status, payload) {
     payload
   };
 }
-export function deviceSettingsChanged(deviceId, payload) {
-  return {
-    type: DEVICE_SETTINGS_CHANGED,
-    deviceId,
-    payload
-  };
+export function deviceSettingsChanged(deviceId, p) {
+	return dispatch => {
+
+		const payload = Object.assign({
+			temp: {
+				min: 0,
+				max: 100
+			},
+			humidity: {
+				min: 0,
+				max: 100
+			}
+		}, p)
+		console.log("DEVICE_SETTINGS_CHANGED", payload)
+
+		dispatch({
+			type: DEVICE_SETTINGS_CHANGED,
+			deviceId,
+			payload
+		})
+	}
+
 }
-export function deviceReadingsChanged(deviceId, payload) {
+export function deviceReadingsChanged(deviceId, p) {
+	const payload = Object.assign({
+		timestamp: p.lastTimestamp
+																},p, {
+
+	})
+	delete payload.lastTimestamp
   return {
     type: DEVICE_READINGS_CHANGED,
     deviceId,
@@ -185,6 +207,44 @@ export function alertRuleSave(alertId, ruleId) {
   };
 }
 
+export function fetchHistory(store, token){
+	return dispatch => {
+		fetch('https://us-central1-basiliskkk.cloudfunctions.net/api/getReportData', {
+			headers: {
+				"content-type": "application/json",
+				Authorization: "Bearer " + token
+			}
+		}).then(res => res.json()).then(data => {
+
+			const payload = {};
+			data.map(d => {
+				if (!payload[d.deviceId]){
+					payload[d.deviceId] = []
+				}
+				payload[d.deviceId].push(d)
+			})
+
+			let sortedPayload = {}
+
+			Object.keys(payload).map(deviceId => {
+				let readings = payload[deviceId].sort((a,b)=>{
+					const res = a.timestamp > b.timestamp;
+					//console.log("sort2", res)
+					return res;
+				});
+				sortedPayload[deviceId] = readings
+			})
+
+			//console.log("fetching history", payload, sortedPayload)
+			dispatch({
+				type: DEVICE_HISTORY_RECEIVED,
+				payload: sortedPayload
+			})
+
+		})
+
+	}
+}
 //adds initial and any new data
 export function initFirebase(store) {
   store.subscribe((e, a) => {
@@ -195,9 +255,24 @@ export function initFirebase(store) {
     console.log("initing firebase", currentUser);
     if (!currentUser) {
       firebase.auth().onAuthStateChanged(user => {
-        console.log("authStateChanged", user);
-        dispatch(userReceive(user));
+
         if (user) {
+					console.log("authStateChanged", user);
+					dispatch(userReceive(user));
+
+					user.getIdToken().then((token)=>{
+						console.log("fetching history2", token)
+						dispatch(fetchHistory(store, token))
+					})
+
+					const saveFcmToken = firebase.messaging().getToken().then(token => {
+						return firebase.database().ref('users/' + user.uid + '/notificationTokens').child(token).set(Math.round(new Date().getTime() / 1000))
+					});
+
+
+					saveFcmToken.then(()=>{
+						//console.warn("token saved", token)
+					})
           console.log(
             "init firebase with user",
             user.email,
@@ -206,8 +281,16 @@ export function initFirebase(store) {
           );
           //setTimeout(initFirebase, 1000)
           dispatch(initFirebase(store));
+
         } else {
-          this.props.navigation.navigate("Login");
+
+        	firebase.messaging().getToken().then(token => {
+						return firebase.database().ref('users/' + user.uid + '/notificationTokens').child(token).set(null)
+					}).then(()=>{
+						console.log("user logged out, removing fcm token", token)
+					})
+
+          //this.props.navigation.navigate("Login");
         }
       });
       return;
