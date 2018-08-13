@@ -1,23 +1,11 @@
+import moment from "moment";
 import React from "react";
-import PropTypes from "prop-types";
 import { ActivityIndicator, SegmentedControlIOS, Text, View } from "react-native";
 import { iOSUIKit } from "react-native-typography";
-import TimeAgo from "react-native-timeago";
-
-import moment from "moment";
-import {
-  Line,
-  VictoryAxis,
-  VictoryBar,
-  VictoryChart,
-  VictoryGroup,
-  VictoryLabel,
-  VictoryLine,
-  VictoryTooltip,
-  VictoryZoomContainer
-} from "victory-native";
-import { STATE_INITIAL, STATE_LOADED } from '../reducers/devices';
+import { Line, VictoryAxis, VictoryChart, VictoryLine, VictoryZoomContainer } from "victory-native";
+import { STATE_INITIAL } from "../reducers/devices";
 import createTheme from "../theme";
+
 const theme = createTheme();
 /**
  *
@@ -32,7 +20,6 @@ export default class DeviceScreen extends React.Component {
   static propTypes = {};
   static defaultProps = {};
 
-
   static navigationOptions = ({ navigation }) => {
     return {
       title: navigation.getParam("device", { name: "" }).name,
@@ -43,48 +30,13 @@ export default class DeviceScreen extends React.Component {
   constructor(props) {
     super(props);
     const currentTimestamp = Math.round(new Date().getTime() / 1000);
-
-
-
     this.state = {
       graphHeight: 0,
       currentTimestamp,
       currentZoomDomain: null,
       selectedIndex: 0
     };
-
-		console.log("sstate", this.state)
   }
-  /*
-  componentDidMount() {
-    const deviceId = this.props.navigation.getParam("device", { deviceId: "" })
-      .deviceId;
-    const deviceSettings = this.props.devices.devices[deviceId];
-    //this.setState({currentZoomDomain: {x: getTimeDomain(Math.round(new Date().getTime() / 1000), 60*60), y: [deviceSettings.temp.min, deviceSettings.temp.max]}})
-    this._nowInterval = setInterval(() => {
-      const currentTimestamp = Math.round(new Date().getTime() / 1000);
-      this.setState({ currentTimestamp });
-    }, 1000);
-  }
-  */
-  componentWillUnmount() {
-    //clearInterval(this._nowInterval);
-  }
-  /*
-  componentWillReceiveProps(props){
-    if (props.devices.devices){
-			const deviceId = this.props.navigation.getParam("device", { deviceId: "" })
-				.deviceId;
-			const deviceSettings = this.props.devices.devices[deviceId];
-			if(deviceSettings){
-				const currentTimestamp = Math.round(new Date().getTime() / 1000);
-				console.warn('setting domain')
-				this.setState({currentZoomDomain: { y: [deviceSettings.temp.min, deviceSettings.temp.max], x: [currentTimestamp - 60*60, currentTimestamp] }})
-			}
-    }
-  }
-  */
-
   render() {
     const styles = {
       axisOne: {
@@ -106,6 +58,7 @@ export default class DeviceScreen extends React.Component {
         tickLabels: { fontSize: 13, padding: 5, fill: "#ffffff" }
       }
     };
+
     const deviceId = this.props.navigation.getParam("device", { deviceId: "" })
       .deviceId;
 
@@ -132,30 +85,24 @@ export default class DeviceScreen extends React.Component {
 
     if (!(deviceSettings && deviceSettings.current)) return null;
 
-    //console.log("rendering settings", deviceSettings);
     const currentTimestamp = this.state.currentTimestamp;
     const currentTimeDomain = getTimeDomain(currentTimestamp, 60 * 60);
+
     const temp = Math.round(deviceSettings.current.temp * 1000) / 1000 || "";
     const humidity =
       Math.round(deviceSettings.current.humidity * 1000) / 1000 || "";
     const timestamp = deviceSettings.current.timestamp;
 
-		let readings = []
+    let readings = [];
 
-		if (this.props.devices.history[deviceId]){
-			readings = Object.keys(this.props.devices.history[deviceId]).map(
-				key => this.props.devices.history[deviceId][key]
-			);
-		}
+    if (this.props.devices.history[deviceId]) {
+      readings = Object.keys(this.props.devices.history[deviceId]).map(
+        key => this.props.devices.history[deviceId][key]
+      );
+    }
 
 
-    console.log("got readings", readings)
-
-		if (readings.length){
-
-		}
     const d = readings.map(r => ({ x: r.timestamp, y: r.temp }));
-    const d2 = readings.map(r => ({ x: r.timestamp, y: r.humidity }));
 
     let { currentZoomDomain: zoomDomain } = this.state;
 
@@ -172,7 +119,6 @@ export default class DeviceScreen extends React.Component {
       x: [currentTimestamp - 60 * 60 * 8, currentTimestamp]
     };
 
-    console.log("values2", theme );
     return (
       <View
         style={{
@@ -206,12 +152,6 @@ export default class DeviceScreen extends React.Component {
             <Text style={iOSUIKit.footnoteWhite}>Humidity</Text>
           </View>
         </View>
-        {/*<View>
-					{readings.map((reading, key) => {
-						console.log("renderReading", reading)
-						return <View key={key}><Text> {reading.temp}</Text></View>
-					})}
-				</View>*/}
         <View style={{ width: "100%", padding: 20, paddingBottom: 0 }}>
           <SegmentedControlIOS
             tintColor={theme.activeColor}
@@ -220,7 +160,7 @@ export default class DeviceScreen extends React.Component {
             onChange={event => {
               this.setState({
                 selectedIndex: event.nativeEvent.selectedSegmentIndex,
-								currentZoomDomain: null,
+                currentZoomDomain: null
               });
             }}
           />
@@ -233,7 +173,7 @@ export default class DeviceScreen extends React.Component {
             this.setState({ graphHeight: height });
           }}
         >
-          {d && d.length > 1 ? (
+          {d && d.length > 10 ? (
             <VictoryChart
               padding={{ top: 0, left: 0, right: 0, bottom: 0 }}
               domain={domain}
@@ -282,9 +222,19 @@ export default class DeviceScreen extends React.Component {
                 interpolation="natural"
               />
             </VictoryChart>
-					) : <View style={{alignItems: 'center', justifyContent: 'center', flex: 1}}><Text style={iOSUIKit.caption2White}>No history data has been recorded yet.</Text></View>}
-
-					{this.props.devices.history.historyState === STATE_INITIAL ? <ActivityIndicator/> : null}
+          ) : (
+            <View
+              style={{
+                alignItems: "center",
+                justifyContent: "center",
+                flex: 1
+              }}
+            >
+              <Text style={iOSUIKit.caption2White}>
+                No history data has been recorded yet.
+              </Text>
+            </View>
+          )}
         </View>
       </View>
     );

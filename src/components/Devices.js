@@ -1,24 +1,14 @@
 import React from "react";
-import PropTypes from "prop-types";
-import {
-  ActivityIndicator,
-  FlatList,
-  StatusBar,
-  Text,
-  View
-} from "react-native";
-import firebase from "react-native-firebase";
-import update from "immutability-helper";
+import { ActivityIndicator, StatusBar, Text, View } from "react-native";
 import { Cell, Section, TableView } from "react-native-tableview-simple";
 import TimeAgo from "react-native-timeago";
+import { iOSUIKit } from "react-native-typography";
 import { createStackNavigator } from "react-navigation";
 import { connect } from "react-redux";
 import mapStateToProps from "../reducers/stateToProps";
-import { initFirebase } from "../actions";
-import RootContainer from "../RootContainer";
-import DeviceScreen from "./Device";
-import { iOSUIKit } from "react-native-typography";
 import createTheme from "../theme";
+import DeviceScreen from "./Device";
+
 const theme = createTheme();
 
 export class DevicesScreen extends React.Component {
@@ -47,7 +37,6 @@ export class DevicesScreen extends React.Component {
       this.setState(state =>
         update(state, { sensorSettings: { [deviceId]: { $set: settings } } })
       );
-
       db.ref("devices/" + deviceId).once("value", snap => {
         let deviceValues = snap.val();
         console.log("got device readings", deviceId, deviceValues);
@@ -60,16 +49,17 @@ export class DevicesScreen extends React.Component {
   */
 
   render() {
-    //const { sensorSettings, sensorData } = this.props;
     console.log("currentProps", this.props);
     let sensorSettings = {};
     let sensorData = {};
 
-    let data = Object.keys(this.props.devices.devices).map(key => {
-      const device = this.props.devices.devices[key];
-      device.deviceId = key;
-      return device;
-    }).sort((a,b)=>a.name.localeCompare(b.name));
+    let data = Object.keys(this.props.devices.devices)
+      .map(key => {
+        const device = this.props.devices.devices[key];
+        device.deviceId = key;
+        return device;
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
 
     if (!data || data.length < 1) {
       return (
@@ -151,30 +141,11 @@ export class DevicesScreen extends React.Component {
     );
   } //end render()
 }
-/*
-* cellContentView={
-									<View>
-										<Text style={iOSUIKit.body}>{item.name}</Text>
-										<Text style={iOSUIKit.subhead}>{temp}</Text>
-										<Text style={iOSUIKit.subhead}>{humidity}</Text>
-									</View>
-								}
-								*/
 
-const mapDispatchToProps = dispatch => ({
-  //fetchData: () => dispatch(fetchData()),
-  //saveAlertField: ()=> dispatch()
-});
-
-const connectedDevicesScreen = connect(mapStateToProps, mapDispatchToProps)(
-  DevicesScreen
-);
-const connectedDeviceScreen = connect(mapStateToProps, mapDispatchToProps)(
-  DeviceScreen
-);
+const connectedDevicesScreen = connect(mapStateToProps)(DevicesScreen);
+const connectedDeviceScreen = connect(mapStateToProps)(DeviceScreen);
 export default createStackNavigator(
   {
-    //Devices: DevicesScreen,
     Devices: connectedDevicesScreen,
     SingleDevice: connectedDeviceScreen
   },

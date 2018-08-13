@@ -43,7 +43,6 @@ export default class DataProvider extends React.Component {
 											update(state, { alerts:  { $set: alertValues }})
 			);
 		});
-
 	}
 	componentDidMount() {
 		firebase.messaging().hasPermission()
@@ -67,7 +66,6 @@ export default class DataProvider extends React.Component {
 				console.error("notification permission denied", error)
 			});
 
-
   	console.log("componentDidMount")
 		const { currentUser } = firebase.auth();
 		if (!currentUser){
@@ -85,10 +83,7 @@ export default class DataProvider extends React.Component {
 			return
 		}
 		this.setState(currentUser)
-
 		this.loadInitialData();
-
-
 	}
 
   render() {

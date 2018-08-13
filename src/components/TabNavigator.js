@@ -3,7 +3,6 @@ import { createBottomTabNavigator } from "react-navigation";
 
 import AlertsScreen from "./Alerts";
 import DevicesScreen from "./Devices";
-import GraphsScreen from "./Graphs";
 import SettingsScreen from "./Settings";
 import Icon from "react-native-vector-icons/SimpleLineIcons";
 import createTheme from '../theme';

@@ -56,8 +56,6 @@ export default (state = initialState, action) => {
         currentAlert: { [action.fieldName]: { $set: action.value } }
       });
     case ALERT_RULE_FIELD_CHANGE:
-    	console.log("ALERT_RULE_FIELD_CHANGE", action, action.fieldName, action.value, state.currentAlert.rules)
-      console.log("currentAlert", state.currentAlert)
       return update(state, {
         currentAlert: {
           rules: {

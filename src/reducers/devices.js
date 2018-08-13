@@ -56,15 +56,7 @@ const reducer = (state = initialState, action)=>{
 					})
 				}
 
-			} else {
-				/*
-				return update(state, {
-					devices: {[action.deviceId]: {$set: action.payload}}
-				})
-				*/
-				console.error("reading arrived before settings for device", action.deviceId)
 			}
-
 	}
 
 	return state;
